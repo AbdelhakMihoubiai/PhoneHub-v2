@@ -14,3 +14,5 @@ server.log
 server-err.log
 tmp-*
 *.log
+
+.env

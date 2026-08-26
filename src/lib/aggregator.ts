@@ -148,10 +148,13 @@ function upsertPhone(query: string, merged: ProviderResult): number {
       .run(now, merged.imageUrl ?? null, merged.releaseDate ?? null, existing.id);
     id = existing.id;
   } else {
-    const r = db.prepare(
+    db.prepare(
       "INSERT INTO phones (slug, brand, model, aliases, image_url, release_date, created_at, updated_at) VALUES (?, ?, ?, '[]', ?, ?, ?, ?)"
     ).run(slug, brand, model, merged.imageUrl ?? null, merged.releaseDate ?? null, now, now);
-    id = Number(r.lastInsertRowid);
+    // Remote libsql may not return lastInsertRowid reliably — resolve by slug.
+    const created = db.prepare("SELECT id FROM phones WHERE slug = ?").get(slug) as { id: number } | undefined;
+    if (!created) throw new Error("Failed to resolve inserted phone id");
+    id = created.id;
   }
 
   const histIns = db.prepare(
