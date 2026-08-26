@@ -1,0 +1,257 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #070b12;
+  --color-surface: #0e1524;
+  --color-border: #1c2942;
+  --color-accent: #38bdf8;
+  --color-accent-2: #a78bfa;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(1100px 480px at 85% -10%, rgba(56, 189, 248, 0.10), transparent),
+    radial-gradient(900px 420px at 5% 108%, rgba(167, 139, 250, 0.09), transparent),
+    var(--color-bg);
+  color: #e6edf7;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Scroll progress ---------- */
+#scroll-progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: var(--progress, 0%);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2));
+  z-index: 60;
+  transition: width 80ms linear;
+  border-radius: 0 3px 3px 0;
+}
+
+/* ---------- Cards / buttons / inputs ---------- */
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.012));
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  border-radius: 16px;
+}
+.card-hover { transition: transform .18s ease, border-color .18s ease; }
+.card-hover:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--color-accent) 45%, transparent); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  border-radius: 12px; padding: .65rem 1.1rem; font-size: .9rem; font-weight: 600;
+  transition: all .15s ease; min-height: 44px; cursor: pointer;
+}
+.btn:focus-visible, .input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.btn-primary { background: linear-gradient(135deg, var(--color-accent), #0ea5e9); color: #05202e; box-shadow: 0 4px 20px rgba(56,189,248,.25); }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-ghost { border: 1px solid var(--color-border); color: #cbd5e1; background: transparent; }
+.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,.06); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.input {
+  width: 100%; background: rgba(255,255,255,.045);
+  border: 1px solid var(--color-border); border-radius: 14px;
+  padding: .85rem 1.1rem; font-size: 16px; /* >=16px prevents iOS zoom */
+  color: #e6edf7; outline: none; min-height: 48px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input::placeholder { color: #55637a; }
+.input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(56,189,248,.15); }
+select.input option { background: var(--color-surface); }
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .68rem; font-weight: 700; letter-spacing: .03em;
+  border-radius: 9999px; padding: .2rem .6rem; text-transform: uppercase; white-space: nowrap;
+}
+.badge-official { background: rgba(52,211,153,.15); color: #34d399; }
+.badge-verified { background: rgba(56,189,248,.15); color: #38bdf8; }
+.badge-multiple_sources { background: rgba(167,139,250,.18); color: #a78bfa; }
+.badge-estimated { background: rgba(251,191,36,.14); color: #fbbf24; }
+.badge-user_submitted { background: rgba(148,163,184,.18); color: #94a3b8; }
+.badge-unavailable { background: rgba(100,116,139,.15); color: #64748b; }
+
+/* ---------- Highlight chips (phone hero) ---------- */
+.chip {
+  display: flex; flex-direction: column; gap: .15rem;
+  background: rgba(255,255,255,.035);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: 12px; padding: .7rem .9rem; min-width: 0;
+}
+.chip b { font-size: 1.02rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip span { font-size: .72rem; color: #8b98ad; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Scroll reveal (respects reduced motion) ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity .6s cubic-bezier(.2,.65,.3,1), transform .6s cubic-bezier(.2,.65,.3,1);
+}
+.reveal.visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  #scroll-progress { transition: none; }
+}
+
+/* ---------- Skeleton shimmer ---------- */
+.skeleton {
+  position: relative; overflow: hidden;
+  background: rgba(255,255,255,.05);
+  border-radius: 10px;
+}
+.skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* ---------- Hero gradient text ---------- */
+.gradient-text {
+  background: linear-gradient(120deg, #7dd3fc, #38bdf8 40%, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- Tables scroll on mobile ---------- */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll table { min-width: 560px; }
+
+/* ---------- Live suggestions dropdown ---------- */
+.suggest-box {
+  background: #0d1526;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+  border-radius: 16px;
+  box-shadow:
+    0 30px 70px -12px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(56, 189, 248, 0.06),
+    0 0 40px -8px rgba(56, 189, 248, 0.15);
+  overflow: hidden;
+  backdrop-filter: none;
+}
+.suggest-box::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
+}
+.suggest-item {
+  transition: background 0.12s ease, padding-left 0.12s ease;
+  border-left: 2px solid transparent;
+}
+.suggest-item:hover,
+.suggest-item:focus-visible {
+  background: rgba(56, 189, 248, 0.08);
+  border-left-color: var(--color-accent);
+  padding-left: 1.15rem;
+  outline: none;
+}
+.suggest-img {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+/* ---------- Animated ambient orbs ---------- */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: .35;
+  pointer-events: none;
+  z-index: 0;
+}
+.orb-a {
+  width: 340px; height: 340px;
+  right: -120px; top: -140px;
+  background: radial-gradient(circle, rgba(56,189,248,.35), transparent 70%);
+  animation: orbDrift 14s ease-in-out infinite;
+}
+.orb-b {
+  width: 280px; height: 280px;
+  left: -110px; bottom: -120px;
+  background: radial-gradient(circle, rgba(167,139,250,.30), transparent 70%);
+  animation: orbDrift 18s ease-in-out infinite reverse;
+}
+@keyframes orbDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(28px, -20px) scale(1.12); }
+  66% { transform: translate(-22px, 18px) scale(.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb { animation: none; }
+}
+
+.hero-glow {
+  box-shadow:
+    0 0 0 1px rgba(56,189,248,.12),
+    0 24px 70px -28px rgba(56,189,248,.22),
+    0 12px 40px rgba(0,0,0,.5);
+}
+.hero-glow > *:not(.orb) { position: relative; z-index: 1; }
+
+/* ---------- Scene / 3D phone ---------- */
+.scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+}
+.chip-tilt { border-radius: 12px; }
+
+/* Binkies 3D — styled to match GSMArena's integration look */
+#binkies-container {
+  background: #f6f6f7;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+#binkies-content {
+  min-height: 380px;
+  position: relative;
+}
+#binkies-color-switcher {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 12px 14px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 5;
+}
+.binkies-color-swatch {
+  padding: 0.4rem 1.1rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid #d9d9d9;
+  background: #ffffff;
+  color: #444;
+  transition: all 0.15s ease;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+.binkies-color-swatch:hover { border-color: #999; }
+.binkies-color-swatch.selected {
+  border-color: #da291c;
+  color: #111;
+  box-shadow: 0 0 0 3px rgba(218, 41, 28, 0.12);
+}
+#binkies-container canvas { max-width: 100% !important; }
