@@ -160,30 +160,38 @@ CREATE TABLE IF NOT EXISTS conflicts (
 
 let _db: Database.Database | null = null;
 
+function createLocal(): Database.Database {
+  const DATA_DIR = path.join(process.cwd(), "data");
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const local = new Database(path.join(DATA_DIR, "phones.db"));
+  local.pragma("journal_mode = WAL");
+  return local;
+}
+
 function init(): Database.Database {
   if (_db) return _db;
 
   if (TURSO_URL) {
     // libsql accepts authToken at runtime; its TS types (copied from
     // better-sqlite3) don't declare it — hence the cast.
-    // Retry construction: remote connections can fail on flaky networks.
-    let lastErr: unknown;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        _db = new Database(TURSO_URL, { authToken: TURSO_TOKEN } as Database.Options);
-        break;
-      } catch (e) {
-        lastErr = e;
+    try {
+      _db = new Database(TURSO_URL, { authToken: TURSO_TOKEN } as Database.Options);
+      _db.exec(SCHEMA);
+      return _db;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Network / Hrana errors locally → fall back to local file so dev keeps working.
+      // On Vercel (same region as Turso) this never happens — Turso is reliable there.
+      if (/Hrana|StreamError|Http|tcp connect|timed? ?out/i.test(msg)) {
+        console.warn("[db] Turso unreachable, falling back to local SQLite:", msg.slice(0, 120));
+        _db = null;
+      } else {
+        throw e;
       }
     }
-    if (!_db) throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
-  } else {
-    const DATA_DIR = path.join(process.cwd(), "data");
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    _db = new Database(path.join(DATA_DIR, "phones.db"));
-    _db.pragma("journal_mode = WAL");
   }
 
+  _db = createLocal();
   _db.exec(SCHEMA);
   return _db;
 }
@@ -191,11 +199,32 @@ function init(): Database.Database {
 /**
  * Lazy proxy: `import db from "@/lib/db"` costs nothing; the real connection
  * (and schema creation) happens on the first prepare/run/exec/get/all call.
+ * If a Turso query fails with a network/Hrana error, we fall back to local
+ * SQLite for the rest of the process so the site stays usable offline.
  */
 export default new Proxy({} as Database.Database, {
   get(_target, prop, receiver) {
     const inst = init() as unknown as Record<string | symbol, unknown>;
     const value = Reflect.get(inst, prop, receiver);
-    return typeof value === "function" ? value.bind(inst) : value;
+    if (typeof value !== "function") return value;
+    // Wrap DB methods: on Hrana/network errors, fall back to local DB once
+    // and retry the call. This makes local dev resilient to flaky networks.
+    return (...args: unknown[]) => {
+      try {
+        return (value as (...a: unknown[]) => unknown).apply(inst, args);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const isHrana = /Hrana|StreamError|Http|tcp connect|timed? ?out/i.test(msg);
+        if (isHrana && TURSO_URL && _db) {
+          console.warn("[db] Turso query failed, falling back to local DB:", msg.slice(0, 150));
+          _db = createLocal();
+          _db.exec(SCHEMA);
+          const fallbackInst = _db as unknown as Record<string | symbol, unknown>;
+          const fallbackFn = Reflect.get(fallbackInst, prop, receiver) as (...a: unknown[]) => unknown;
+          return fallbackFn.apply(fallbackInst, args);
+        }
+        throw e;
+      }
+    };
   },
 });
