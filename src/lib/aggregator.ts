@@ -142,19 +142,21 @@ function upsertPhone(query: string, merged: ProviderResult): number {
   const now = new Date().toISOString();
   let id: number;
 
-  const existing = db.prepare("SELECT id FROM phones WHERE slug = ?").get(slug) as { id: number } | undefined;
+  const existing = db.prepare("SELECT id FROM phones WHERE slug = ?").get(slug) as { id: number | bigint } | undefined;
   if (existing) {
+    const existingId = Number(existing.id);
     db.prepare("UPDATE phones SET updated_at = ?, image_url = COALESCE(?, image_url), release_date = COALESCE(?, release_date) WHERE id = ?")
-      .run(now, merged.imageUrl ?? null, merged.releaseDate ?? null, existing.id);
-    id = existing.id;
+      .run(now, merged.imageUrl ?? null, merged.releaseDate ?? null, existingId);
+    id = existingId;
   } else {
     db.prepare(
       "INSERT INTO phones (slug, brand, model, aliases, image_url, release_date, created_at, updated_at) VALUES (?, ?, ?, '[]', ?, ?, ?, ?)"
     ).run(slug, brand, model, merged.imageUrl ?? null, merged.releaseDate ?? null, now, now);
-    // Remote libsql may not return lastInsertRowid reliably — resolve by slug.
-    const created = db.prepare("SELECT id FROM phones WHERE slug = ?").get(slug) as { id: number } | undefined;
+    // Remote libsql (Hrana) may not return lastInsertRowid reliably — resolve by slug.
+    // Turso returns BIGINT over Hrana — coerce to Number for subsequent binds.
+    const created = db.prepare("SELECT id FROM phones WHERE slug = ?").get(slug) as { id: number | bigint } | undefined;
     if (!created) throw new Error("Failed to resolve inserted phone id");
-    id = created.id;
+    id = Number(created.id);
   }
 
   const histIns = db.prepare(
@@ -162,7 +164,7 @@ function upsertPhone(query: string, merged: ProviderResult): number {
   );
   const fieldUpsert = db.prepare(
     `INSERT INTO fields (phone_id, field_path, value, unit, status, source, source_url, retrieved_at, note)
-     VALUES (@pid, @path, @value, @unit, @status, @source, @source_url, @at, @note)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(phone_id, field_path) DO UPDATE SET
        value=excluded.value, unit=excluded.unit, status=excluded.status,
        source=excluded.source, source_url=excluded.source_url,
@@ -174,11 +176,7 @@ function upsertPhone(query: string, merged: ProviderResult): number {
     if (val.value == null) continue;
     const at = val.retrievedAt ?? now;
     const prev = oldField.get(id, path) as { value: string } | undefined;
-    fieldUpsert.run({
-      pid: id, path, value: JSON.stringify(val.value), unit: val.unit ?? null,
-      status: val.status, source: val.source ?? null, source_url: val.sourceUrl ?? null,
-      at, note: val.note ?? null,
-    });
+    fieldUpsert.run(id, path, JSON.stringify(val.value), val.unit ?? null, val.status, val.source ?? null, val.sourceUrl ?? null, at, val.note ?? null);
     histIns.run(id, "field", path, prev?.value ?? null, JSON.stringify(val.value), val.source ?? null, at);
   }
 
