@@ -1,12 +1,33 @@
-import Database from "better-sqlite3";
+import Database from "libsql";
 import fs from "node:fs";
 import path from "node:path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+/**
+ * Database connection — dual mode:
+ *
+ *  - Turso (cloud): set TURSO_DATABASE_URL (libsql://…) and TURSO_AUTH_TOKEN.
+ *    Used for hosting (Vercel etc.) — data persists in the cloud.
+ *  - Local file: no env vars → data/phones.db (development).
+ *
+ * `libsql` is a drop-in replacement for better-sqlite3, so the rest of the
+ * app (synchronous prepare/run/all/get calls) works identically in both modes.
+ */
 
-const db = new Database(path.join(DATA_DIR, "phones.db"));
-db.pragma("journal_mode = WAL");
+const TURSO_URL = process.env.TURSO_DATABASE_URL;
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN;
+
+let db: Database.Database;
+
+if (TURSO_URL) {
+  // libsql accepts authToken at runtime; its TS types (copied from
+  // better-sqlite3) don't declare it — hence the cast.
+  db = new Database(TURSO_URL, { authToken: TURSO_TOKEN } as Database.Options);
+} else {
+  const DATA_DIR = path.join(process.cwd(), "data");
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  db = new Database(path.join(DATA_DIR, "phones.db"));
+  db.pragma("journal_mode = WAL");
+}
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS phones (
@@ -46,18 +67,6 @@ CREATE TABLE IF NOT EXISTS variants (
   model_number TEXT,
   region TEXT
 );
-
--- Related media: news mentions, reviews, gallery images (requirement #3)
-CREATE TABLE IF NOT EXISTS media (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  phone_id INTEGER NOT NULL REFERENCES phones(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL,        -- news | review | gallery
-  title TEXT NOT NULL,
-  url TEXT,
-  image_url TEXT,
-  retrieved_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_media_phone ON media(phone_id);
 
 CREATE TABLE IF NOT EXISTS benchmarks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +112,18 @@ CREATE TABLE IF NOT EXISTS prices (
   status TEXT NOT NULL,
   retrieved_at TEXT NOT NULL
 );
+
+-- Related media: news mentions, reviews, gallery images (requirement #3)
+CREATE TABLE IF NOT EXISTS media (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone_id INTEGER NOT NULL REFERENCES phones(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,        -- news | review | gallery | model3d
+  title TEXT NOT NULL,
+  url TEXT,
+  image_url TEXT,
+  retrieved_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_media_phone ON media(phone_id);
 
 -- Requirement #6: update history for refreshes
 CREATE TABLE IF NOT EXISTS update_history (
